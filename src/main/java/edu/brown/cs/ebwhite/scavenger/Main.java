@@ -1,63 +1,66 @@
 package edu.brown.cs.ebwhite.scavenger;
 
-import java.util.List;
-import java.util.ArrayList;
-import java.util.Scanner;
-import java.util.regex.Pattern;
-import java.util.Map;
-
-import java.io.File;
-import java.io.FileNotFoundException;
-
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 import joptsimple.OptionSpec;
+import edu.brown.cs.ebwhite.database.Db;
 
+/**
+ * The Main class handles the running of TRTL. We use the data
+ * specified by flags to change how TRTL behaves. We can
+ * specify port, database, gui, keystore, and keypass.
+ * @author cchen5
+ *
+ */
 public class Main {
-  private Integer port;
 
   public static void main(String[] args) {
-    new Main(args).run();
-  }
-
-  private String[] args;
-  private Main(String[] args) {
-    this.args = args;
-  }
-
-  private void run() {
+    Integer port;
     OptionParser parser = new OptionParser();
     parser.accepts("gui");
     parser.accepts("port").withRequiredArg().ofType(Integer.class);
+    parser.accepts("database").withRequiredArg().ofType(String.class);
+    OptionSpec<String> secure = parser.accepts("keystore").withRequiredArg().ofType(String.class);
+    parser.accepts("keypass").requiredIf(secure).withRequiredArg().ofType(String.class);
     OptionSpec<String> stringSpec = parser.nonOptions().ofType(String.class);
     OptionSet options = parser.parse(args);
 
-    /* List<String> input = options.valuesOf(stringSpec); */
-
-    if(options.has("port")){
+    if (options.has("port")) {
       port = (Integer) options.valueOf("port");
-    }
-    else{
+    } else {
       port = 2456;
     }
 
-    if(options.has("gui")){
-/*      if(input.size() != 1){
-        System.out.println("ERROR: Wrong number of arguments");
-        System.exit(1);
-      } */
-      /* Start spark, etc. */
-      SparkServer s = new SparkServer(port);
-      s.run();
+    if (options.has("database")) {
+      String path = (String) options.valueOf("database");
+      try {
+        Db.database(path);
+      } catch (ClassNotFoundException e1) {
+        System.out.println("ERROR: could not connect to DB: " + path);
+        e1.printStackTrace();
+      }
+    } else {
+      try {
+        Db.database("turtlDB.sqlite3");
+      } catch (ClassNotFoundException e1) {
+        System.out.println("ERROR: could not connect to DB turtlDB.sqlite3");
+        e1.printStackTrace();
+      }
     }
-    else{
+
+    if (options.has("gui")) {
+      if(options.has(secure)){
+        String keystore = options.valueOf(secure);
+        String keypass = (String) options.valueOf("keypass");
+        SparkServer s = new SparkServer(port, keystore, keypass);
+        s.run();
+      } else {
+        SparkServer s = new SparkServer(port);
+        s.run();
+      }
+
+    } else {
       return;
     }
   }
-
 }
